@@ -92,10 +92,13 @@ function navigate(viewId) {
 
 // Initialize Supabase Client
 function initSupabase() {
-  const url = localStorage.getItem('supabase_url') || PRODUCTION_SUPABASE_URL;
+  let url = localStorage.getItem('supabase_url') || PRODUCTION_SUPABASE_URL;
   const anonKey = localStorage.getItem('supabase_anon_key') || PRODUCTION_SUPABASE_ANON_KEY;
 
   if (url && anonKey) {
+    // Normalizar URL: remover barras finais e sufixo /rest/v1
+    url = url.trim().replace(/\/+$/, "");
+    url = url.replace(/\/rest\/v1$/, "");
     try {
       supabaseClient = window.supabase.createClient(url, anonKey);
       isMockMode = false;
@@ -237,10 +240,13 @@ async function handleLogout() {
 // Save Supabase Settings and Leasing Factors
 function handleSettingsSubmit(e) {
   e.preventDefault();
-  const url = document.getElementById('supabase-url').value.trim();
+  let url = document.getElementById('supabase-url').value.trim();
   const anonKey = document.getElementById('supabase-anon-key').value.trim();
 
   if (url && anonKey) {
+    // Normalizar URL: remover barras finais e sufixo /rest/v1
+    url = url.replace(/\/+$/, "");
+    url = url.replace(/\/rest\/v1$/, "");
     localStorage.setItem('supabase_url', url);
     localStorage.setItem('supabase_anon_key', anonKey);
     initSupabase();
