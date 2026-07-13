@@ -1,8 +1,8 @@
 // Application State & Configuration
 // Para colocar em produção permanentemente, preencha as chaves abaixo com os dados do seu Supabase.
 // Caso contrário, a aplicação usará as configurações salvas localmente no navegador (localStorage).
-const PRODUCTION_SUPABASE_URL = "";
-const PRODUCTION_SUPABASE_ANON_KEY = "";
+const PRODUCTION_SUPABASE_URL = "https://chgpmzlmmpnjawajhjle.supabase.co";
+const PRODUCTION_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoZ3BtemxtbXBuamF3YWpoamxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MjI0OTksImV4cCI6MjA5OTE5ODQ5OX0.YHM1eoKtSzgCkyrhQquxmVkZu52zuHQ-Du3xfP8A0bU";
 
 let supabaseClient = null;
 let isMockMode = true; // Default to mockup mode if Supabase credentials are not set
