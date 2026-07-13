@@ -121,6 +121,13 @@
         <div class="db-title">Configurações</div>
         <div class="db-desc">Configure integrações, dados da empresa e dados do Supabase.</div>
       </div>
+
+      <!-- Botão Grande 4: Histórico de Propostas -->
+      <div class="db-card" id="card-history">
+        <div class="db-icon">📁</div>
+        <div class="db-title">Histórico de Propostas</div>
+        <div class="db-desc">Acesse, pesquise por cliente e re-baixe suas propostas emitidas.</div>
+      </div>
     </div>
   </section>
 
@@ -469,7 +476,50 @@
     </div>
   </section>
 
+  <!-- 6. TELA: HISTÓRICO DE PROPOSTAS -->
+  <section id="view-history" class="glass-container glass-container-large hidden">
+    <div class="nav-bar" style="align-items: center;">
+      <button class="btn-back" onclick="navigate('dashboard')">←</button>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="logo.png" alt="AC Display" style="height: 60px; object-fit: contain;">
+        <div class="page-title">Histórico de Propostas</div>
+      </div>
+    </div>
+
+    <!-- Barra de Busca -->
+    <div style="margin-top: 30px; margin-bottom: 24px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="history-search">Buscar Cliente</label>
+        <div class="input-wrapper">
+          <input type="text" id="history-search" placeholder="Digite o nome do cliente para filtrar a lista..." autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela de Histórico -->
+    <div class="table-container" style="margin-top: 10px; max-height: 500px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 120px;">Data</th>
+            <th style="width: 120px; text-align: center;">Nº Proposta</th>
+            <th>Cliente</th>
+            <th>Serviço</th>
+            <th style="width: 220px; text-align: center;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="history-table-body">
+          <tr>
+            <td colspan="5" class="text-center" style="color: var(--text-secondary); padding: 30px;">
+              Faça login para visualizar seu histórico de propostas.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="app.js?v=2.3"></script>
+  <script src="app.js?v=2.4"></script>
 </body>
 </html>

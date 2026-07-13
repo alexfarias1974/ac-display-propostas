@@ -34,8 +34,12 @@ const MOCK_DB = {
     { id: '2', nome: 'Totem AC Display MBM 55"', preco: 5120.00 },
     { id: '3', nome: 'Painel de LED Outdoor P3.91', preco: 14500.00 }
   ],
+  proposals: JSON.parse(localStorage.getItem('mock_proposals')) || [],
   saveProducts() {
     localStorage.setItem('mock_products', JSON.stringify(this.products));
+  },
+  saveProposals() {
+    localStorage.setItem('mock_proposals', JSON.stringify(this.proposals));
   }
 };
 
@@ -59,19 +63,26 @@ function showToast(message, type = 'success') {
 
 // Navigation Router
 function navigate(viewId) {
-  const views = ['view-auth', 'view-dashboard', 'view-products', 'view-proposals', 'view-settings'];
+  const views = ['view-auth', 'view-dashboard', 'view-products', 'view-proposals', 'view-settings', 'view-history'];
   views.forEach(id => {
     const el = document.getElementById(id);
-    if (id === `view-${viewId}`) {
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
+    if (el) {
+      if (id === `view-${viewId}`) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
     }
   });
 
   // Load products list if navigating to product page or proposals page
   if (viewId === 'products' || viewId === 'proposals') {
     loadProducts();
+  }
+
+  // Load proposals list if navigating to history page
+  if (viewId === 'history') {
+    loadProposals();
   }
 
   // Pre-load settings inputs
@@ -558,6 +569,7 @@ function setupEvents() {
   safeBind('card-products', 'click', () => navigate('products'));
   safeBind('card-proposals', 'click', () => navigate('proposals'));
   safeBind('card-settings', 'click', () => navigate('settings'));
+  safeBind('card-history', 'click', () => navigate('history'));
 
   // Drag and Drop implementation
   const dropzone = document.getElementById('dropzone');
@@ -956,32 +968,8 @@ function setupProposalEvents() {
     const totalCost = currentProposalItems.reduce((sum, item) => sum + (item.preco * item.qty), 0);
     const isImpSelected = document.getElementById('switch-factor-type').checked;
     const leaseFactors = isImpSelected ? LEASING_FACTORS.impressao : LEASING_FACTORS.ti;
-    const factorTypeName = isImpSelected ? "Fator Impressão" : "Fator TI";
 
-    // Build items rows
-    const itemsRows = currentProposalItems.map(item => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 11pt; color: #333;">${item.nome}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; text-align: center; font-size: 11pt; color: #333; font-weight: 600;">${item.qty}</td>
-      </tr>
-    `).join('');
-
-    // Build Pricing Options
-    let pricingHTML = '';
-    
-    if (isSaleEnabled) {
-      const saleCost = totalCost * SALE_FACTOR;
-      const saleCostFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saleCost);
-      pricingHTML += `
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #fcf0f7; border-left: 4px solid #ff007f; border-radius: 4px;">
-          <h4 style="margin: 0 0 5px 0; font-size: 11pt; color: #ff007f; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Venda Direta (Aquisição)</h4>
-          <span style="font-size: 20pt; font-weight: 800; color: #0a1128;">${saleCostFormatted}</span>
-          <span style="font-size: 9pt; color: #666; display: block; margin-top: 5px;">* Pagamento único. Equipamentos tornam-se de propriedade do cliente.</span>
-        </div>
-      `;
-    }
-
-    // Leasing options
+    // Build options JSON
     const activeTerms = [];
     const checkableTerms = [
       { key: "12", id: "switch-12m", name: "12 Meses" },
@@ -989,7 +977,7 @@ function setupProposalEvents() {
       { key: "36", id: "switch-36m", name: "36 Meses" },
       { key: "48", id: "switch-48m", name: "48 Meses" }
     ];
-    
+
     checkableTerms.forEach(term => {
       if (document.getElementById(term.id).checked) {
         const factorValue = leaseFactors[term.key] || 0;
@@ -999,141 +987,369 @@ function setupProposalEvents() {
       }
     });
 
-    if (activeTerms.length > 0) {
-      const leaseRows = activeTerms.map(t => `
-        <div style="flex: 1; min-width: 120px; padding: 12px; background-color: #f0faff; border-top: 4px solid #00f0ff; border-radius: 4px; text-align: center;">
-          <span style="font-size: 9pt; color: #666; text-transform: uppercase; font-weight: 700;">${t.name}</span>
-          <span style="display: block; font-size: 14pt; font-weight: 800; color: #0a1128; margin-top: 5px;">${t.val}</span>
-          <span style="font-size: 8pt; color: #0088cc;">/ mês</span>
-        </div>
-      `).join('');
-
-      pricingHTML += `
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #fafbfc; border: 1px solid #e0e0e0; border-radius: 4px;">
-          <h4 style="margin: 0 0 10px 0; font-size: 11pt; color: #0088cc; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Locação Mensal (Outsourcing)</h4>
-          <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            ${leaseRows}
-          </div>
-          <span style="font-size: 9pt; color: #666; display: block; margin-top: 10px;">* Valores mensais fixos. Inclui suporte, substituição rápida de equipamentos (SLA) e assistência técnica integral durante a vigência do contrato.</span>
-        </div>
-      `;
-    }
-
-    // PDF Main Template
-    const pdfTemplate = `
-      <div style="font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; padding: 10px 40px 40px 40px; color: #0a1128; max-width: 800px; margin: 0 auto; background-color: #ffffff; box-sizing: border-box;">
-        <!-- Header -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-          <tr>
-            <td style="vertical-align: middle;">
-              <img src="logo.png" style="height: 190px; object-fit: contain; display: block;">
-            </td>
-            <td style="text-align: right; vertical-align: middle;">
-              <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #666; letter-spacing: 0.5px;">Proposta Comercial</div>
-              <div style="font-size: 18px; font-weight: 800; color: #ff007f; margin-top: 2px;">Nº ${formattedNum}</div>
-              <div style="font-size: 10px; color: #888; margin-top: 2px;">Emissão: ${dateStr}</div>
-            </td>
-          </tr>
-        </table>
-
-        <div style="border-top: 2px solid #0a1128; margin-bottom: 15px;"></div>
-
-        <!-- Customer Section -->
-        <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 10px; font-weight: 800; letter-spacing: 0.5px;">Dados do Cliente</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #fafbfc; border-radius: 4px; border: 1px solid #e0e0e0;">
-          <tr>
-            <td style="padding: 12px; font-size: 10pt; color: #555; width: 120px; font-weight: 700; border-bottom: 1px solid #e0e0e0;">Cliente:</td>
-            <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0; font-weight: 600;">${client}</td>
-          </tr>
-          <tr>
-            <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700; border-bottom: 1px solid #e0e0e0;">CNPJ:</td>
-            <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0;">${cnpj}</td>
-          </tr>
-          <tr>
-            <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700;">Serviço:</td>
-            <td style="padding: 12px; font-size: 10pt; color: #0a1128; font-style: italic;">${service}</td>
-          </tr>
-        </table>
-
-        <!-- Scope Table -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px;">
-          <thead>
-            <tr style="border-bottom: 2px solid #0a1128; color: #0a1128;">
-              <th style="padding: 12px 10px; text-align: left; font-size: 13pt; font-weight: 800;">Produto / Descrição</th>
-              <th style="padding: 12px 10px; text-align: center; font-size: 13pt; font-weight: 800; width: 100px;">Qtd</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsRows}
-          </tbody>
-        </table>
-
-        <!-- Commercial Conditions Section -->
-        <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 15px; font-weight: 800; letter-spacing: 0.5px;">Condições Comerciais Propostas</h3>
-        ${pricingHTML}
-
-        <!-- General Conditions -->
-        <h3 style="font-size: 10pt; text-transform: uppercase; color: #0a1128; margin-top: 30px; margin-bottom: 8px; font-weight: 800; letter-spacing: 0.5px;">Observações e Condições Gerais</h3>
-        <ul style="font-size: 9pt; color: #555; line-height: 1.5; margin: 0 0 40px 0; padding-left: 20px;">
-          <li>Validade desta proposta: 10 (dez) dias corridos a contar da data de emissão.</li>
-          <li>Prazo de entrega e início da operação: a combinar conforme cronograma técnico da contratada.</li>
-          <li>Para a opção de locação, a manutenção corretiva e preventiva está integralmente coberta por nossa equipe, sem custos adicionais.</li>
-          <li>O fornecimento de infraestrutura elétrica e pontos de rede necessários no local da instalação é de responsabilidade do cliente contratante.</li>
-        </ul>
-
-        <!-- Signatures -->
-        <table style="width: 100%; margin-top: 60px; border-collapse: collapse;">
-          <tr>
-            <td style="width: 45%; text-align: center; vertical-align: top;">
-              <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
-              <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">AC DISPLAY</div>
-              <div style="font-size: 8pt; color: #666;">Departamento Comercial</div>
-            </td>
-            <td style="width: 10%;"></td>
-            <td style="width: 45%; text-align: center; vertical-align: top;">
-              <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
-              <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">De Acordo: ${client}</div>
-              <div style="font-size: 8pt; color: #666;">Assinatura e Carimbo (Responsável)</div>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `;
-
-    // html2pdf options
-    const opt = {
-      margin:       [2, 10, 10, 10],
-      filename:     `proposta_ACDisplay_N${formattedNum}_${client.replace(/\s+/g, '_')}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    const opcoesComerciais = {
+      venda_direta: {
+        habilitado: isSaleEnabled,
+        valor: isSaleEnabled ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCost * SALE_FACTOR) : ""
+      },
+      locacao: activeTerms
     };
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = pdfTemplate;
-    // Append off-screen so layout calculations can run properly, preventing blank images/broken DOM
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-    tempDiv.style.top = '-9999px';
-    document.body.appendChild(tempDiv);
-    
-    showToast("Gerando PDF da proposta comercial...", "success");
+    const proposalData = {
+      numero: formattedNum,
+      cliente: client,
+      cnpj: cnpj,
+      servico: service,
+      itens: currentProposalItems.map(item => ({ nome: item.nome, qty: item.qty })),
+      opcoes_comerciais: opcoesComerciais,
+      data_emissao: dateStr
+    };
 
-    html2pdf().set(opt).from(tempDiv).save().then(() => {
-      showToast(`Proposta Nº ${formattedNum} gerada com sucesso!`, "success");
-    }).catch(err => {
-      console.error(err);
-      showToast("Erro ao gerar arquivo PDF.", "error");
-    }).finally(() => {
-      // Remove temporary element
-      tempDiv.remove();
-      // Remove any leftover html2pdf container overlays that block page clicks
-      document.querySelectorAll('.html2pdf__container').forEach(el => el.remove());
-      // Force pointer-events back to auto on body/document to prevent lockups
-      document.body.style.pointerEvents = 'auto';
-      document.documentElement.style.pointerEvents = 'auto';
-    });
+    if (isMockMode) {
+      proposalData.id = Date.now().toString();
+      const userKey = currentUser ? (currentUser.email || currentUser.id) : 'default';
+      proposalData.user_id = userKey;
+      MOCK_DB.proposals.push(proposalData);
+      MOCK_DB.saveProposals();
+
+      // Trigger download
+      generateProposalPDF(proposalData);
+
+      // Reset UI
+      document.getElementById('proposal-form').reset();
+      currentProposalItems = [];
+      renderProposalItems();
+      showToast("Proposta salva no histórico local offline!", "success");
+    } else {
+      // Save to Supabase propostas table
+      proposalData.user_id = currentUser ? currentUser.id : null;
+      supabaseClient.from('propostas').insert([proposalData]).then(({ error }) => {
+        if (error) {
+          console.error("Erro ao salvar proposta no Supabase:", error);
+          showToast("Proposta não pôde ser salva no histórico online: " + error.message, "error");
+        } else {
+          showToast("Proposta salva no histórico online!", "success");
+        }
+
+        // Trigger download
+        generateProposalPDF(proposalData);
+
+        // Reset UI
+        document.getElementById('proposal-form').reset();
+        currentProposalItems = [];
+        renderProposalItems();
+      }).catch(err => {
+        console.error("Erro na requisição ao Supabase:", err);
+        showToast("Erro de rede. Gerando PDF sem salvar no histórico.", "error");
+        generateProposalPDF(proposalData);
+      });
+    }
   });
+
+  // Execute setup for history screen
+  try {
+    setupHistoryEvents();
+  } catch (error) {
+    console.error("Erro ao iniciar eventos do histórico:", error);
+  }
+}
+
+// Generate Commercial Proposal PDF from data
+function generateProposalPDF(proposal) {
+  const formattedNum = proposal.numero;
+  const client = proposal.cliente;
+  const cnpj = proposal.cnpj;
+  const service = proposal.servico;
+  const dateStr = proposal.data_emissao;
+
+  const itemsRows = proposal.itens.map(item => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 11pt; color: #333;">${item.nome}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; text-align: center; font-size: 11pt; color: #333; font-weight: 600;">${item.qty}</td>
+    </tr>
+  `).join('');
+
+  const pricingHTML = buildPricingHTML(proposal.opcoes_comerciais);
+
+  const pdfTemplate = `
+    <div style="font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; padding: 10px 40px 40px 40px; color: #0a1128; max-width: 800px; margin: 0 auto; background-color: #ffffff; box-sizing: border-box;">
+      <!-- Header -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+        <tr>
+          <td style="vertical-align: middle;">
+            <img src="logo.png" style="height: 190px; object-fit: contain; display: block;">
+          </td>
+          <td style="text-align: right; vertical-align: middle;">
+            <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #666; letter-spacing: 0.5px;">Proposta Comercial</div>
+            <div style="font-size: 18px; font-weight: 800; color: #ff007f; margin-top: 2px;">Nº ${formattedNum}</div>
+            <div style="font-size: 10px; color: #888; margin-top: 2px;">Emissão: ${dateStr}</div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="border-top: 2px solid #0a1128; margin-bottom: 15px;"></div>
+
+      <!-- Customer Section -->
+      <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 10px; font-weight: 800; letter-spacing: 0.5px;">Dados do Cliente</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #fafbfc; border-radius: 4px; border: 1px solid #e0e0e0;">
+        <tr>
+          <td style="padding: 12px; font-size: 10pt; color: #555; width: 120px; font-weight: 700; border-bottom: 1px solid #e0e0e0;">Cliente:</td>
+          <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0; font-weight: 600;">${client}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700; border-bottom: 1px solid #e0e0e0;">CNPJ:</td>
+          <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0;">${cnpj}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700;">Serviço:</td>
+          <td style="padding: 12px; font-size: 10pt; color: #0a1128; font-style: italic;">${service}</td>
+        </tr>
+      </table>
+
+      <!-- Scope Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px;">
+        <thead>
+          <tr style="border-bottom: 2px solid #0a1128; color: #0a1128;">
+            <th style="padding: 12px 10px; text-align: left; font-size: 13pt; font-weight: 800;">Produto / Descrição</th>
+            <th style="padding: 12px 10px; text-align: center; font-size: 13pt; font-weight: 800; width: 100px;">Qtd</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows}
+        </tbody>
+      </table>
+
+      <!-- Commercial Conditions Section -->
+      <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 15px; font-weight: 800; letter-spacing: 0.5px;">Condições Comerciais Propostas</h3>
+      ${pricingHTML}
+
+      <!-- General Conditions -->
+      <h3 style="font-size: 10pt; text-transform: uppercase; color: #0a1128; margin-top: 30px; margin-bottom: 8px; font-weight: 800; letter-spacing: 0.5px;">Observações e Condições Gerais</h3>
+      <ul style="font-size: 9pt; color: #555; line-height: 1.5; margin: 0 0 40px 0; padding-left: 20px;">
+        <li>Validade desta proposta: 10 (dez) dias corridos a contar da data de emissão.</li>
+        <li>Prazo de entrega e início da operação: a combinar conforme cronograma técnico da contratada.</li>
+        <li>Para a opção de locação, a manutenção corretiva e preventiva está integralmente coberta por nossa equipe, sem custos adicionais.</li>
+        <li>O fornecimento de infraestrutura elétrica e pontos de rede necessários no local da instalação é de responsabilidade do cliente contratante.</li>
+      </ul>
+
+      <!-- Signatures -->
+      <table style="width: 100%; margin-top: 60px; border-collapse: collapse;">
+        <tr>
+          <td style="width: 45%; text-align: center; vertical-align: top;">
+            <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
+            <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">AC DISPLAY</div>
+            <div style="font-size: 8pt; color: #666;">Departamento Comercial</div>
+          </td>
+          <td style="width: 10%;"></td>
+          <td style="width: 45%; text-align: center; vertical-align: top;">
+            <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
+            <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">De Acordo: ${client}</div>
+            <div style="font-size: 8pt; color: #666;">Assinatura e Carimbo (Responsável)</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const opt = {
+    margin:       [2, 10, 10, 10],
+    filename:     `proposta_ACDisplay_N${formattedNum}_${client.replace(/\s+/g, '_')}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = pdfTemplate;
+  // Append off-screen so layout calculations can run properly, preventing blank images/broken DOM
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.top = '-9999px';
+  document.body.appendChild(tempDiv);
+
+  html2pdf().set(opt).from(tempDiv).save().then(() => {
+    showToast(`Proposta Nº ${formattedNum} gerada com sucesso!`, "success");
+  }).catch(err => {
+    console.error(err);
+    showToast("Erro ao gerar arquivo PDF.", "error");
+  }).finally(() => {
+    // Remove temporary element
+    tempDiv.remove();
+    // Remove any leftover html2pdf container overlays that block page clicks
+    document.querySelectorAll('.html2pdf__container').forEach(el => el.remove());
+    // Force pointer-events back to auto on body/document to prevent lockups
+    document.body.style.pointerEvents = 'auto';
+    document.documentElement.style.pointerEvents = 'auto';
+  });
+}
+
+// Build pricing options HTML for PDF rendering
+function buildPricingHTML(opcoes) {
+  let html = '';
+
+  if (opcoes.venda_direta && opcoes.venda_direta.habilitado) {
+    html += `
+      <div style="margin-bottom: 20px; padding: 15px; background-color: #fcf0f7; border-left: 4px solid #ff007f; border-radius: 4px;">
+        <h4 style="margin: 0 0 5px 0; font-size: 11pt; color: #ff007f; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Venda Direta (Aquisição)</h4>
+        <span style="font-size: 20pt; font-weight: 800; color: #0a1128;">${opcoes.venda_direta.valor}</span>
+        <span style="font-size: 9pt; color: #666; display: block; margin-top: 5px;">* Pagamento único. Equipamentos tornam-se de propriedade do cliente.</span>
+      </div>
+    `;
+  }
+
+  if (opcoes.locacao && opcoes.locacao.length > 0) {
+    const leaseRows = opcoes.locacao.map(t => `
+      <div style="flex: 1; min-width: 120px; padding: 12px; background-color: #f0faff; border-top: 4px solid #00f0ff; border-radius: 4px; text-align: center;">
+        <span style="font-size: 9pt; color: #666; text-transform: uppercase; font-weight: 700;">${t.name}</span>
+        <span style="display: block; font-size: 14pt; font-weight: 800; color: #0a1128; margin-top: 5px;">${t.val}</span>
+        <span style="font-size: 8pt; color: #0088cc;">/ mês</span>
+      </div>
+    `).join('');
+
+    html += `
+      <div style="margin-bottom: 20px; padding: 15px; background-color: #fafbfc; border: 1px solid #e0e0e0; border-radius: 4px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 11pt; color: #0088cc; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Locação Mensal (Outsourcing)</h4>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          ${leaseRows}
+        </div>
+        <span style="font-size: 9pt; color: #666; display: block; margin-top: 10px;">* Valores mensais fixos. Inclui suporte, substituição rápida de equipamentos (SLA) e assistência técnica integral durante a vigência do contrato.</span>
+      </div>
+    `;
+  }
+
+  return html;
+}
+
+// Global proposals state for filtering
+let allProposals = [];
+
+// Setup History Search Filter and Table event listeners
+function setupHistoryEvents() {
+  const searchInput = document.getElementById('history-search');
+  const tableBody = document.getElementById('history-table-body');
+
+  if (!searchInput || !tableBody) return;
+
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase().trim();
+    const filtered = allProposals.filter(prop => 
+      prop.cliente.toLowerCase().includes(query)
+    );
+    renderProposalsTable(filtered);
+  });
+
+  tableBody.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('btn-download-pdf')) {
+      const index = parseInt(e.target.dataset.index);
+      const proposal = allProposals[index];
+      if (proposal) {
+        generateProposalPDF(proposal);
+      }
+    } else if (e.target.classList.contains('btn-delete-item')) {
+      const index = parseInt(e.target.dataset.index);
+      const proposal = allProposals[index];
+      if (proposal && confirm(`Deseja realmente excluir a proposta Nº ${proposal.numero} do cliente "${proposal.cliente}"?`)) {
+        await deleteProposal(proposal.id, index);
+      }
+    }
+  });
+}
+
+// Load current user proposals history from Supabase or MockDB
+async function loadProposals() {
+  const tableBody = document.getElementById('history-table-body');
+  if (tableBody) {
+    tableBody.innerHTML = `<tr><td colspan="5" class="text-center"><span class="spinner"></span> Carregando histórico...</td></tr>`;
+  }
+
+  // Clear search field
+  const searchInput = document.getElementById('history-search');
+  if (searchInput) searchInput.value = '';
+
+  if (isMockMode) {
+    const userKey = currentUser ? (currentUser.email || currentUser.id) : 'default';
+    allProposals = MOCK_DB.proposals.filter(p => p.user_id === userKey);
+    renderProposalsTable(allProposals);
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('propostas')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    allProposals = data;
+    renderProposalsTable(allProposals);
+  } catch (error) {
+    console.error("Erro ao buscar histórico:", error);
+    showToast("Erro ao carregar histórico: " + error.message, "error");
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="5" class="text-center" style="color: var(--magenta);">Erro ao conectar com o banco. Veja Configurações.</td></tr>`;
+    }
+  }
+}
+
+// Render filtered proposals list in view-history table
+function renderProposalsTable(proposals) {
+  const tableBody = document.getElementById('history-table-body');
+  if (!tableBody) return;
+
+  if (proposals.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center" style="color: var(--text-secondary); padding: 30px;">
+          Nenhuma proposta cadastrada no histórico.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = proposals.map((prop, idx) => `
+    <tr>
+      <td>${prop.data_emissao}</td>
+      <td style="text-align: center; font-weight: 700; color: var(--blue);">Nº ${prop.numero}</td>
+      <td style="font-weight: 600;">${prop.cliente}</td>
+      <td style="font-style: italic; color: var(--text-secondary);">${prop.servico}</td>
+      <td style="text-align: center;">
+        <button type="button" class="btn-download-pdf" data-index="${idx}">Baixar PDF</button>
+        <button type="button" class="btn-delete-item" data-index="${idx}">Excluir</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Delete Proposal permanently
+async function deleteProposal(id, index) {
+  if (isMockMode) {
+    const realIndex = MOCK_DB.proposals.findIndex(p => p.id === id);
+    if (realIndex > -1) {
+      MOCK_DB.proposals.splice(realIndex, 1);
+      MOCK_DB.saveProposals();
+    }
+    showToast("Proposta removida do histórico local.", "success");
+    loadProposals();
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('propostas')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    showToast("Proposta removida do histórico com sucesso!", "success");
+    loadProposals();
+  } catch (error) {
+    console.error("Erro ao deletar proposta do Supabase:", error);
+    showToast("Erro ao excluir proposta: " + error.message, "error");
+  }
+}
 }
 
 // Expose navigate globally
