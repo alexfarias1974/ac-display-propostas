@@ -1350,7 +1350,6 @@ async function deleteProposal(id, index) {
     showToast("Erro ao excluir proposta: " + error.message, "error");
   }
 }
-}
 
 // Expose navigate globally
 window.navigate = navigate;
