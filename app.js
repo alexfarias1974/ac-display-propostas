@@ -1,4 +1,9 @@
 // Application State & Configuration
+// Para colocar em produção permanentemente, preencha as chaves abaixo com os dados do seu Supabase.
+// Caso contrário, a aplicação usará as configurações salvas localmente no navegador (localStorage).
+const PRODUCTION_SUPABASE_URL = "";
+const PRODUCTION_SUPABASE_ANON_KEY = "";
+
 let supabaseClient = null;
 let isMockMode = true; // Default to mockup mode if Supabase credentials are not set
 let isSignUpMode = false;
@@ -87,8 +92,8 @@ function navigate(viewId) {
 
 // Initialize Supabase Client
 function initSupabase() {
-  const url = localStorage.getItem('supabase_url');
-  const anonKey = localStorage.getItem('supabase_anon_key');
+  const url = localStorage.getItem('supabase_url') || PRODUCTION_SUPABASE_URL;
+  const anonKey = localStorage.getItem('supabase_anon_key') || PRODUCTION_SUPABASE_ANON_KEY;
 
   if (url && anonKey) {
     try {
@@ -97,8 +102,10 @@ function initSupabase() {
       console.log("Supabase inicializado com sucesso.");
       
       // Update config inputs
-      document.getElementById('supabase-url').value = url;
-      document.getElementById('supabase-anon-key').value = anonKey;
+      const urlInput = document.getElementById('supabase-url');
+      const keyInput = document.getElementById('supabase-anon-key');
+      if (urlInput) urlInput.value = url;
+      if (keyInput) keyInput.value = anonKey;
 
       // Listen for Auth changes
       supabaseClient.auth.onAuthStateChange((event, session) => {
