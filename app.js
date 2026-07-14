@@ -1163,14 +1163,11 @@ function generateProposalPDF(proposal) {
 
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = pdfTemplate;
-  // Append off-screen/transparently with explicit width so layout calculations run properly, preventing blank PDFs
-  tempDiv.style.position = 'fixed';
-  tempDiv.style.top = '0';
-  tempDiv.style.left = '0';
+  // Append off-screen with explicit width so layout calculations run properly and it is fully visible in canvas
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.top = '-9999px';
   tempDiv.style.width = '800px';
-  tempDiv.style.opacity = '0';
-  tempDiv.style.pointerEvents = 'none';
-  tempDiv.style.zIndex = '-9999';
   document.body.appendChild(tempDiv);
 
   html2pdf().set(opt).from(tempDiv).save().then(() => {
