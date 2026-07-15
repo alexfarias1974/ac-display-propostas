@@ -1159,17 +1159,44 @@ function generateProposalPDF(proposal) {
   y += 6;
 
   if (opcoes && opcoes.venda_direta && opcoes.venda_direta.habilitado) {
-    checkPage(26);
-    setFillColor('#fcf0f7'); doc.rect(margin, y - 2, contentW, 24, 'F');
+    // Parse the stored BRL string back to a number to calculate installment
+    const valorStr = String(opcoes.venda_direta.valor || '');
+    const valorNum = parseFloat(valorStr.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    const parcelaNum = valorNum / 12;
+    const parcelaStr = parcelaNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    // Two blocks side by side: À VISTA (left) | PARCELADO 12x (right)
+    const halfW = (contentW - 4) / 2;
+    checkPage(30);
+
+    // Block 1 — À VISTA
+    setFillColor('#fcf0f7'); doc.rect(margin, y - 2, halfW, 27, 'F');
     setDrawColor('#ff007f'); doc.setLineWidth(1);
-    doc.line(margin, y - 2, margin, y + 22);
-    doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#ff007f');
-    doc.text('OP\u00C7\u00C3O DE VENDA DIRETA (AQUISI\u00C7\u00C3O)', margin + 4, y + 3);
-    doc.setFontSize(15); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
-    doc.text(String(opcoes.venda_direta.valor || ''), margin + 4, y + 13);
-    doc.setFontSize(7); doc.setFont('helvetica','normal'); setTextColor('#666666');
-    doc.text('* Pagamento \u00FAnico. Equipamentos tornam-se de propriedade do cliente.', margin + 4, y + 20);
-    y += 28;
+    doc.line(margin, y - 2, margin, y + 25);
+    doc.setLineWidth(0.2);
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setTextColor('#ff007f');
+    doc.text('OP\u00C7\u00C3O DE VENDA \u00C0 VISTA', margin + 4, y + 3);
+    doc.setFontSize(14); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+    doc.text(valorStr, margin + 4, y + 13);
+    doc.setFontSize(6.5); doc.setFont('helvetica','normal'); setTextColor('#666666');
+    doc.text('* Pagamento \u00FAnico \u00E0 vista.', margin + 4, y + 20);
+    doc.text('Equipamentos do cliente.', margin + 4, y + 24);
+
+    // Block 2 — PARCELADO 12x
+    const bx = margin + halfW + 4;
+    setFillColor('#fff8f0'); doc.rect(bx, y - 2, halfW, 27, 'F');
+    setDrawColor('#ff8c00'); doc.setLineWidth(1);
+    doc.line(bx, y - 2, bx, y + 25);
+    doc.setLineWidth(0.2);
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setTextColor('#ff8c00');
+    doc.text('OP\u00C7\u00C3O PARCELADO EM 12x NO CART\u00C3O', bx + 4, y + 3);
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+    doc.text('12x de ' + parcelaStr, bx + 4, y + 13);
+    doc.setFontSize(6.5); doc.setFont('helvetica','normal'); setTextColor('#666666');
+    doc.text('* Parcelado no cart\u00E3o de cr\u00E9dito.', bx + 4, y + 20);
+    doc.text('Total: ' + valorStr, bx + 4, y + 24);
+
+    y += 31;
   }
 
   if (opcoes && opcoes.locacao && opcoes.locacao.length > 0) {
