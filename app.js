@@ -1129,25 +1129,24 @@ function generateProposalPDF(proposal) {
 
   // ---- ITEMS TABLE ----
   checkPage(20);
+  // Section title acting as header: "PRODUTOS / DESCRIÇÃO" left, "QTD" right
   doc.setFontSize(9); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
   doc.text('PRODUTOS / DESCRI\u00C7\u00C3O', margin, y);
+  doc.text('QTD', pageW - margin, y, { align: 'right' });
+  y += 3;
+  // Thin separator line under the title
+  setDrawColor('#0a1128'); doc.setLineWidth(0.4);
+  doc.line(margin, y, pageW - margin, y);
   y += 5;
-
-  setFillColor('#0a1128'); doc.rect(margin, y - 4, contentW, 8, 'F');
-  doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#ffffff');
-  doc.text('Produto / Descri\u00E7\u00E3o', margin + 3, y + 1);
-  doc.text('Qtd', pageW - margin - 3, y + 1, { align: 'right' });
-  y += 8;
 
   itens.forEach((item, i) => {
     checkPage(9);
-    if (i % 2 === 0) { setFillColor('#f7f7f7'); doc.rect(margin, y - 4, contentW, 8, 'F'); }
     setDrawColor('#e0e0e0'); doc.setLineWidth(0.1);
     doc.line(margin, y + 4, pageW - margin, y + 4);
     doc.setFontSize(8); doc.setFont('helvetica','normal'); setTextColor('#333333');
     const nl = doc.splitTextToSize(String(item.nome || ''), contentW - 26);
     doc.text(nl, margin + 3, y + 1);
-    doc.setFont('helvetica','bold');
+    doc.setFont('helvetica','bold'); setTextColor('#0a1128');
     doc.text(String(item.qty || ''), pageW - margin - 3, y + 1, { align: 'right' });
     y += 8;
   });
