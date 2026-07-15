@@ -1056,171 +1056,197 @@ function setupProposalEvents() {
   }
 }
 
-// Generate Commercial Proposal PDF from data
+// Generate Commercial Proposal PDF using jsPDF (programmatic - reliable in production)
 function generateProposalPDF(proposal) {
   const formattedNum = proposal.numero;
   const client = proposal.cliente;
   const cnpj = proposal.cnpj;
   const service = proposal.servico;
   const dateStr = proposal.data_emissao;
+  const itens = proposal.itens;
+  const opcoes = proposal.opcoes_comerciais;
 
-  const itemsRows = proposal.itens.map(item => `
-    <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 11pt; color: #333;">${item.nome}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; text-align: center; font-size: 11pt; color: #333; font-weight: 600;">${item.qty}</td>
-    </tr>
-  `).join('');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentW = pageW - margin * 2;
+  let y = margin;
 
-  const pricingHTML = buildPricingHTML(proposal.opcoes_comerciais);
+  // ---- Helpers ----
+  function hexRGB(hex) {
+    return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+  }
+  function setTextColor(hex)  { doc.setTextColor(...hexRGB(hex)); }
+  function setFillColor(hex)  { doc.setFillColor(...hexRGB(hex)); }
+  function setDrawColor(hex)  { doc.setDrawColor(...hexRGB(hex)); }
+  function checkPage(needed)  {
+    if (y + needed > pageH - margin) { doc.addPage(); y = margin; }
+  }
 
-  const pdfTemplate = `
-    <div style="font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; padding: 10px 40px 40px 40px; color: #0a1128; max-width: 800px; margin: 0 auto; background-color: #ffffff; box-sizing: border-box;">
-      <!-- Header -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-        <tr>
-          <td style="vertical-align: middle;">
-            <img src="data:image/png;base64,${LOGO_BASE64}" style="height: 190px; object-fit: contain; display: block;">
-          </td>
-          <td style="text-align: right; vertical-align: middle;">
-            <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #666; letter-spacing: 0.5px;">Proposta Comercial</div>
-            <div style="font-size: 18px; font-weight: 800; color: #ff007f; margin-top: 2px;">Nº ${formattedNum}</div>
-            <div style="font-size: 10px; color: #888; margin-top: 2px;">Emissão: ${dateStr}</div>
-          </td>
-        </tr>
-      </table>
+  // ---- HEADER ----
+  try { doc.addImage('data:image/png;base64,' + LOGO_BASE64, 'PNG', margin, y, 50, 22); } catch(e) {}
 
-      <div style="border-top: 2px solid #0a1128; margin-bottom: 15px;"></div>
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  setTextColor('#666666');
+  doc.text('PROPOSTA COMERCIAL', pageW - margin, y + 5, { align: 'right' });
 
-      <!-- Customer Section -->
-      <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 10px; font-weight: 800; letter-spacing: 0.5px;">Dados do Cliente</h3>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #fafbfc; border-radius: 4px; border: 1px solid #e0e0e0;">
-        <tr>
-          <td style="padding: 12px; font-size: 10pt; color: #555; width: 120px; font-weight: 700; border-bottom: 1px solid #e0e0e0;">Cliente:</td>
-          <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0; font-weight: 600;">${client}</td>
-        </tr>
-        <tr>
-          <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700; border-bottom: 1px solid #e0e0e0;">CNPJ:</td>
-          <td style="padding: 12px; font-size: 10pt; color: #0a1128; border-bottom: 1px solid #e0e0e0;">${cnpj}</td>
-        </tr>
-        <tr>
-          <td style="padding: 12px; font-size: 10pt; color: #555; font-weight: 700;">Serviço:</td>
-          <td style="padding: 12px; font-size: 10pt; color: #0a1128; font-style: italic;">${service}</td>
-        </tr>
-      </table>
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  setTextColor('#ff007f');
+  doc.text('N\u00BA ' + formattedNum, pageW - margin, y + 12, { align: 'right' });
 
-      <!-- Scope Table -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 35px;">
-        <thead>
-          <tr style="border-bottom: 2px solid #0a1128; color: #0a1128;">
-            <th style="padding: 12px 10px; text-align: left; font-size: 13pt; font-weight: 800;">Produto / Descrição</th>
-            <th style="padding: 12px 10px; text-align: center; font-size: 13pt; font-weight: 800; width: 100px;">Qtd</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsRows}
-        </tbody>
-      </table>
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  setTextColor('#888888');
+  doc.text('Emiss\u00E3o: ' + dateStr, pageW - margin, y + 17, { align: 'right' });
+  y += 27;
 
-      <!-- Commercial Conditions Section -->
-      <h3 style="font-size: 12pt; text-transform: uppercase; color: #0a1128; margin-bottom: 15px; font-weight: 800; letter-spacing: 0.5px;">Condições Comerciais Propostas</h3>
-      ${pricingHTML}
+  setDrawColor('#0a1128'); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageW - margin, y);
+  y += 7;
 
-      <!-- General Conditions -->
-      <h3 style="font-size: 10pt; text-transform: uppercase; color: #0a1128; margin-top: 30px; margin-bottom: 8px; font-weight: 800; letter-spacing: 0.5px;">Observações e Condições Gerais</h3>
-      <ul style="font-size: 9pt; color: #555; line-height: 1.5; margin: 0 0 40px 0; padding-left: 20px;">
-        <li>Validade desta proposta: 10 (dez) dias corridos a contar da data de emissão.</li>
-        <li>Prazo de entrega e início da operação: a combinar conforme cronograma técnico da contratada.</li>
-        <li>Para a opção de locação, a manutenção corretiva e preventiva está integralmente coberta por nossa equipe, sem custos adicionais.</li>
-        <li>O fornecimento de infraestrutura elétrica e pontos de rede necessários no local da instalação é de responsabilidade do cliente contratante.</li>
-      </ul>
+  // ---- CLIENT DATA ----
+  doc.setFontSize(9); doc.setFont('helvetica','bold');
+  setTextColor('#0a1128');
+  doc.text('DADOS DO CLIENTE', margin, y);
+  y += 5;
 
-      <!-- Signatures -->
-      <table style="width: 100%; margin-top: 60px; border-collapse: collapse;">
-        <tr>
-          <td style="width: 45%; text-align: center; vertical-align: top;">
-            <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
-            <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">AC DISPLAY</div>
-            <div style="font-size: 8pt; color: #666;">Departamento Comercial</div>
-          </td>
-          <td style="width: 10%;"></td>
-          <td style="width: 45%; text-align: center; vertical-align: top;">
-            <div style="border-top: 1px solid #888; width: 80%; margin: 0 auto 5px auto;"></div>
-            <div style="font-size: 9pt; font-weight: 700; color: #0a1128;">De Acordo: ${client}</div>
-            <div style="font-size: 8pt; color: #666;">Assinatura e Carimbo (Responsável)</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-  `;
-
-  const opt = {
-    margin:       [2, 10, 10, 10],
-    filename:     `proposta_ACDisplay_N${formattedNum}_${client.replace(/\s+/g, '_')}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = pdfTemplate;
-  // Append off-screen with explicit width so layout calculations run properly and it is fully visible in canvas
-  tempDiv.style.position = 'absolute';
-  tempDiv.style.left = '-9999px';
-  tempDiv.style.top = '-9999px';
-  tempDiv.style.width = '800px';
-  document.body.appendChild(tempDiv);
-
-  html2pdf().set(opt).from(tempDiv).save().then(() => {
-    showToast(`Proposta Nº ${formattedNum} gerada com sucesso!`, "success");
-  }).catch(err => {
-    console.error(err);
-    showToast("Erro ao gerar arquivo PDF.", "error");
-  }).finally(() => {
-    // Remove temporary element
-    tempDiv.remove();
-    // Remove any leftover html2pdf container overlays that block page clicks
-    document.querySelectorAll('.html2pdf__container').forEach(el => el.remove());
-    // Force pointer-events back to auto on body/document to prevent lockups
-    document.body.style.pointerEvents = 'auto';
-    document.documentElement.style.pointerEvents = 'auto';
+  [['Cliente:', client], ['CNPJ:', cnpj], ['Servi\u00E7o:', service]].forEach(([lbl, val], i) => {
+    checkPage(9);
+    setFillColor(i % 2 === 0 ? '#fafbfc' : '#f0f4f8');
+    doc.rect(margin, y - 4, contentW, 8, 'F');
+    setDrawColor('#e0e0e0'); doc.setLineWidth(0.2);
+    doc.rect(margin, y - 4, contentW, 8, 'D');
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    setTextColor('#555555');
+    doc.text(lbl, margin + 3, y + 1);
+    doc.setFont('helvetica','normal'); setTextColor('#0a1128');
+    const vl = doc.splitTextToSize(String(val || ''), contentW - 36);
+    doc.text(vl, margin + 36, y + 1);
+    y += 8;
   });
-}
+  y += 6;
 
-// Build pricing options HTML for PDF rendering
-function buildPricingHTML(opcoes) {
-  let html = '';
+  // ---- ITEMS TABLE ----
+  checkPage(20);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+  doc.text('PRODUTOS / DESCRI\u00C7\u00C3O', margin, y);
+  y += 5;
 
-  if (opcoes.venda_direta && opcoes.venda_direta.habilitado) {
-    html += `
-      <div style="margin-bottom: 20px; padding: 15px; background-color: #fcf0f7; border-left: 4px solid #ff007f; border-radius: 4px;">
-        <h4 style="margin: 0 0 5px 0; font-size: 11pt; color: #ff007f; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Venda Direta (Aquisição)</h4>
-        <span style="font-size: 20pt; font-weight: 800; color: #0a1128;">${opcoes.venda_direta.valor}</span>
-        <span style="font-size: 9pt; color: #666; display: block; margin-top: 5px;">* Pagamento único. Equipamentos tornam-se de propriedade do cliente.</span>
-      </div>
-    `;
+  setFillColor('#0a1128'); doc.rect(margin, y - 4, contentW, 8, 'F');
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#ffffff');
+  doc.text('Produto / Descri\u00E7\u00E3o', margin + 3, y + 1);
+  doc.text('Qtd', pageW - margin - 3, y + 1, { align: 'right' });
+  y += 8;
+
+  itens.forEach((item, i) => {
+    checkPage(9);
+    if (i % 2 === 0) { setFillColor('#f7f7f7'); doc.rect(margin, y - 4, contentW, 8, 'F'); }
+    setDrawColor('#e0e0e0'); doc.setLineWidth(0.1);
+    doc.line(margin, y + 4, pageW - margin, y + 4);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); setTextColor('#333333');
+    const nl = doc.splitTextToSize(String(item.nome || ''), contentW - 26);
+    doc.text(nl, margin + 3, y + 1);
+    doc.setFont('helvetica','bold');
+    doc.text(String(item.qty || ''), pageW - margin - 3, y + 1, { align: 'right' });
+    y += 8;
+  });
+  y += 8;
+
+  // ---- COMMERCIAL CONDITIONS ----
+  checkPage(20);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+  doc.text('CONDI\u00C7\u00D5ES COMERCIAIS PROPOSTAS', margin, y);
+  y += 6;
+
+  if (opcoes && opcoes.venda_direta && opcoes.venda_direta.habilitado) {
+    checkPage(26);
+    setFillColor('#fcf0f7'); doc.rect(margin, y - 2, contentW, 24, 'F');
+    setDrawColor('#ff007f'); doc.setLineWidth(1);
+    doc.line(margin, y - 2, margin, y + 22);
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#ff007f');
+    doc.text('OP\u00C7\u00C3O DE VENDA DIRETA (AQUISI\u00C7\u00C3O)', margin + 4, y + 3);
+    doc.setFontSize(15); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+    doc.text(String(opcoes.venda_direta.valor || ''), margin + 4, y + 13);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); setTextColor('#666666');
+    doc.text('* Pagamento \u00FAnico. Equipamentos tornam-se de propriedade do cliente.', margin + 4, y + 20);
+    y += 28;
   }
 
-  if (opcoes.locacao && opcoes.locacao.length > 0) {
-    const leaseRows = opcoes.locacao.map(t => `
-      <div style="flex: 1; min-width: 120px; padding: 12px; background-color: #f0faff; border-top: 4px solid #00f0ff; border-radius: 4px; text-align: center;">
-        <span style="font-size: 9pt; color: #666; text-transform: uppercase; font-weight: 700;">${t.name}</span>
-        <span style="display: block; font-size: 14pt; font-weight: 800; color: #0a1128; margin-top: 5px;">${t.val}</span>
-        <span style="font-size: 8pt; color: #0088cc;">/ mês</span>
-      </div>
-    `).join('');
+  if (opcoes && opcoes.locacao && opcoes.locacao.length > 0) {
+    const n = opcoes.locacao.length;
+    const cols = Math.min(n, 4);
+    const rows = Math.ceil(n / cols);
+    const blockH = 14 + rows * 18;
+    checkPage(blockH + 10);
+    setFillColor('#fafbfc'); doc.rect(margin, y - 2, contentW, blockH, 'F');
+    setDrawColor('#e0e0e0'); doc.setLineWidth(0.2);
+    doc.rect(margin, y - 2, contentW, blockH, 'D');
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#0088cc');
+    doc.text('OP\u00C7\u00C3O DE LOCA\u00C7\u00C3O MENSAL (OUTSOURCING)', margin + 4, y + 3);
+    y += 9;
 
-    html += `
-      <div style="margin-bottom: 20px; padding: 15px; background-color: #fafbfc; border: 1px solid #e0e0e0; border-radius: 4px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 11pt; color: #0088cc; text-transform: uppercase; letter-spacing: 0.5px;">Opção de Locação Mensal (Outsourcing)</h4>
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-          ${leaseRows}
-        </div>
-        <span style="font-size: 9pt; color: #666; display: block; margin-top: 10px;">* Valores mensais fixos. Inclui suporte, substituição rápida de equipamentos (SLA) e assistência técnica integral durante a vigência do contrato.</span>
-      </div>
-    `;
+    const colW = contentW / cols;
+    opcoes.locacao.forEach((t, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = margin + col * colW;
+      const cy = y + row * 18;
+      setFillColor('#e8f4fb'); doc.rect(cx + 2, cy - 2, colW - 4, 15, 'F');
+      setDrawColor('#00aacc'); doc.setLineWidth(0.4);
+      doc.line(cx + 2, cy - 2, cx + colW - 2, cy - 2);
+      doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setTextColor('#666666');
+      doc.text(String(t.name || ''), cx + colW/2, cy + 2, { align: 'center' });
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+      doc.text(String(t.val || ''), cx + colW/2, cy + 8, { align: 'center' });
+      doc.setFontSize(6); doc.setFont('helvetica','normal'); setTextColor('#0088cc');
+      doc.text('/ m\u00EAs', cx + colW/2, cy + 11.5, { align: 'center' });
+    });
+    y += rows * 18 + 2;
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); setTextColor('#666666');
+    const note = doc.splitTextToSize('* Valores mensais fixos. Inclui suporte, substitui\u00E7\u00E3o r\u00E1pida (SLA) e assist\u00EAncia t\u00E9cnica integral durante a vig\u00EAncia do contrato.', contentW - 6);
+    doc.text(note, margin + 4, y);
+    y += note.length * 3.5 + 4;
   }
 
-  return html;
+  // ---- GENERAL CONDITIONS ----
+  checkPage(40);
+  y += 4;
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+  doc.text('OBSERVA\u00C7\u00D5ES E CONDI\u00C7\u00D5ES GERAIS', margin, y);
+  y += 5;
+
+  ['Validade desta proposta: 10 (dez) dias corridos a contar da data de emiss\u00E3o.',
+   'Prazo de entrega e in\u00EDcio da opera\u00E7\u00E3o: a combinar conforme cronograma t\u00E9cnico da contratada.',
+   'Para a op\u00E7\u00E3o de loca\u00E7\u00E3o, a manuten\u00E7\u00E3o corretiva e preventiva est\u00E1 integralmente coberta por nossa equipe, sem custos adicionais.',
+   'O fornecimento de infraestrutura el\u00E9trica e pontos de rede necess\u00E1rios no local da instala\u00E7\u00E3o \u00E9 de responsabilidade do cliente contratante.'
+  ].forEach(c => {
+    checkPage(8);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setTextColor('#555555');
+    const lns = doc.splitTextToSize('\u2022 ' + c, contentW - 4);
+    doc.text(lns, margin + 3, y);
+    y += lns.length * 3.8 + 2;
+  });
+
+  // ---- SIGNATURES ----
+  checkPage(25);
+  y += 12;
+  const sigW = contentW * 0.42;
+  setDrawColor('#888888'); doc.setLineWidth(0.3);
+  doc.line(margin, y, margin + sigW, y);
+  doc.line(pageW - margin - sigW, y, pageW - margin, y);
+  y += 4;
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); setTextColor('#0a1128');
+  doc.text('AC DISPLAY', margin + sigW/2, y, { align: 'center' });
+  doc.text('De Acordo: ' + client, pageW - margin - sigW/2, y, { align: 'center' });
+  y += 4;
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); setTextColor('#666666');
+  doc.text('Departamento Comercial', margin + sigW/2, y, { align: 'center' });
+  doc.text('Assinatura e Carimbo (Respons\u00E1vel)', pageW - margin - sigW/2, y, { align: 'center' });
+
+  // ---- SAVE ----
+  doc.save('proposta_ACDisplay_N' + formattedNum + '_' + client.replace(/\s+/g,'_') + '.pdf');
+  showToast('Proposta N\u00BA ' + formattedNum + ' gerada com sucesso!', 'success');
 }
 
 // Global proposals state for filtering
